@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, Table
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Float, Table,Date
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -17,7 +17,7 @@ class Anime(Base):
     alt_titles = Column(Text)  # Could store JSON or comma-separated
     type = Column(String(20))
     description = Column(Text)
-    release_year = Column(Integer)
+    release_year = Column(Date)
     status = Column(String(20))
     episodes_chapters = Column(Integer)
     image_url = Column(Text)
