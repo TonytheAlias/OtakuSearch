@@ -15,6 +15,7 @@ router = APIRouter(
 class AnimeCreate(BaseModel):
    title: str
    alt_titles: Optional[str] = None
+   type: Optional[str] = None
    description: Optional[str] = None
    release_year: Optional[date] = None
    status: Optional[str] = None
@@ -28,6 +29,7 @@ class AnimeResponse(BaseModel):
    id: int
    title: str
    alt_titles: Optional[str] = None
+   type: Optional[str] = None
    description: Optional[str] = None
    release_year: Optional[date] = None
    status: Optional[str] = None
@@ -37,11 +39,12 @@ class AnimeResponse(BaseModel):
    rating: Optional[float] = None
     
    class Config:
-        orm_mode = True
+        from_attributes = True
 
 class AnimeUpdate(BaseModel):
     title: str
     alt_titles: Optional[str] = None
+    type: Optional[str] = None 
     description: Optional[str] = None
     release_year: Optional[date] = None
     status: Optional[str] = None
@@ -95,6 +98,7 @@ async def create_anime(anime: AnimeCreate, db: Session = Depends(get_db)):
         db_anime = Anime(
             title=anime.title,
             alt_titles=anime.alt_titles,
+            type=anime.type,
             description=anime.description,
             release_year=anime.release_year,
             status=anime.status,
