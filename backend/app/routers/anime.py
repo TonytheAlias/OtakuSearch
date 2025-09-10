@@ -1,9 +1,11 @@
 from fastapi import APIRouter,Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
-from app.models import Anime
+from app.models import Anime, Genre
+from .genre import GenreResponse
 from datetime import date
 from typing import List, Optional
 
@@ -24,6 +26,8 @@ class AnimeCreate(BaseModel):
    popularity: Optional[int] = None
    rating: Optional[float] = None
 
+   genres: list[int] = []
+
 
 class AnimeResponse(BaseModel):
    id: int
@@ -37,12 +41,15 @@ class AnimeResponse(BaseModel):
    image_url: Optional[str] = None
    popularity: Optional[int] = None
    rating: Optional[float] = None
-    
+   
+   genres: List[GenreResponse] = []
+   
    class Config:
         from_attributes = True
 
+
 class AnimeUpdate(BaseModel):
-    title: str
+    title: Optional[str] = None
     alt_titles: Optional[str] = None
     type: Optional[str] = None 
     description: Optional[str] = None
@@ -52,6 +59,7 @@ class AnimeUpdate(BaseModel):
     image_url: Optional[str] = None
     popularity: Optional[int] = None
     rating: Optional[float] = None
+    genres: Optional[List[int]] = []
 
 # Retrieve all anime
 @router.get("/", response_model = List[AnimeResponse])
@@ -62,7 +70,7 @@ async def get_all_anime(db: Session = Depends(get_db)):
 
 # Retreive anime by id
 @router.get("/{id}", response_model=AnimeResponse)
-async def get_animebyid(id: int, db: Session = Depends(get_db)):
+async def get_anime_by_id(id: int, db: Session = Depends(get_db)):
     anime = db.query(Anime).filter(Anime.id == id).first()
     if not anime:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anime not found")
@@ -70,26 +78,44 @@ async def get_animebyid(id: int, db: Session = Depends(get_db)):
 
 # Update anime
 @router.put("/{id}", response_model=AnimeResponse)
-async def update_animebyid(id: int, anime_update: AnimeUpdate, db: Session = Depends(get_db)):
-    rows_affected = db.query(Anime).filter(Anime.id == id).update(
-        anime_update.model_dump(exclude_unset=True)
-    )
-    if rows_affected == 0:
+async def update_anime_by_id(id: int, anime_update: AnimeUpdate, db: Session = Depends(get_db)):
+    updated_anime_by_id = db.query(Anime).filter(Anime.id == id).first()
+
+    if not updated_anime_by_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anime not found")
+
+    for key, value in anime_update.dict(exclude_unset=True).items():
+        if key != "genres":
+            setattr(updated_anime_by_id, key, value)
+    
+    if anime_update.genres is not None:
+        updated_anime_by_id.genres = db.query(Genre).filter(Genre.id.in_(anime_update.genres)).all()
+    
     db.commit()
-    updated_animebyid = db.query(Anime).filter(Anime.id == id).first()
-    return updated_animebyid
+    db.refresh(updated_anime_by_id)
+    return updated_anime_by_id
 
 # Delete anime
 @router.delete("/{id}")
 async def delete_anime(id: int, db: Session = Depends(get_db)):
-    rows_deleted = db.query(Anime).filter(Anime.id == id).delete()
+    try: 
+        anime = db.query(Anime).filter(Anime.id == id).first()
 
-    if rows_deleted == 0:
-        raise HTTPException(status_code=404, detail="Anime not found")
-    
-    db.commit()
-    return {"message": f"Anime {id} deleted"}
+        if not anime: 
+            raise HTTPException(status_code=404, detail="Anime not found")
+        anime.genres = []
+        db.flush()
+
+        db.delete(anime)
+        db.commit()
+        
+        return {"message": f"Anime {id} deleted"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete anime: {str(e)}"
+        )
 
 # Add Anime to Database
 @router.post("/", response_model=AnimeResponse, status_code=status.HTTP_201_CREATED)
@@ -107,6 +133,10 @@ async def create_anime(anime: AnimeCreate, db: Session = Depends(get_db)):
             popularity=anime.popularity,
             rating=anime.rating
         )
+        # Look up genres by IDs
+        if anime.genres:
+            db_anime.genres = db.query(Genre).filter(Genre.id.in_(anime.genres)).all()
+
         db.add(db_anime) 
         db.commit()
         db.refresh(db_anime)
