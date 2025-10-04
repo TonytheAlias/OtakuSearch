@@ -84,7 +84,7 @@ async def update_anime_by_id(id: int, anime_update: AnimeUpdate, db: Session = D
     if not updated_anime_by_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anime not found")
 
-    for key, value in anime_update.dict(exclude_unset=True).items():
+    for key, value in anime_update.model_dump(exclude_unset=True).items():
         if key != "genres":
             setattr(updated_anime_by_id, key, value)
     

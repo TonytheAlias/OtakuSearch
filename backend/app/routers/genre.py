@@ -2,6 +2,7 @@ from fastapi import APIRouter,Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 from app.database import get_db
 from app.models import Genre
 from typing import List
@@ -65,9 +66,7 @@ async def delete_genre(id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=GenreResponse, status_code=status.HTTP_201_CREATED)
 async def add_genre(genre: GenreCreate, db: Session = Depends(get_db)):
     try:
-        db_genre = Genre(
-            name = genre.name
-        )
+        db_genre = Genre(name=genre.name)
         db.add(db_genre) 
         db.commit()
         db.refresh(db_genre)
@@ -75,6 +74,32 @@ async def add_genre(genre: GenreCreate, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Genre already exists")
-    except Exception:
+    except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create genre due to server error")
+        # More specific error for debugging
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create genre: {str(e)}")
+    
+@router.get("/health-check")
+async def database_health_check(db: Session = Depends(get_db)):
+    try:
+        # Fixed: Use text() wrapper for raw SQL
+        result = db.execute(text("SELECT 1 as test")).fetchone()
+        
+        # Count existing genres - this uses ORM so no text() needed
+        genre_count = db.query(Genre).count()
+        
+        # Try to fetch one genre (if any exist)
+        sample_genre = db.query(Genre).first()
+        
+        return {
+            "status": "healthy",
+            "connection_test": result[0] if result else None,
+            "total_genres": genre_count,
+            "sample_genre": sample_genre.name if sample_genre else "No genres found"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
