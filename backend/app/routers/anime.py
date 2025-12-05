@@ -18,13 +18,23 @@ class AnimeCreate(BaseModel):
    title: str
    alt_titles: Optional[str] = None
    type: Optional[str] = None
+   original_format: Optional[str] = None
+   source_material: Optional[str] = None
    description: Optional[str] = None
    release_year: Optional[date] = None
+   aired_from: Optional[date] = None
+   aired_to: Optional[date] = None
    status: Optional[str] = None
-   episodes_chapters: Optional[int] = None
+   episodes: Optional[int] = None
+   chapters: Optional[int] = None
+   volumes: Optional[int] = None
+   duration_minutes: Optional[int] = None
    image_url: Optional[str] = None
    popularity: Optional[int] = None
    rating: Optional[float] = None
+   author: Optional[str] = None
+   studio: Optional[str] = None
+   serialization: Optional[str] = None
 
    genres: list[int] = []
 
@@ -34,13 +44,24 @@ class AnimeResponse(BaseModel):
    title: str
    alt_titles: Optional[str] = None
    type: Optional[str] = None
+   original_format: Optional[str] = None
+   source_material: Optional[str] = None
    description: Optional[str] = None
    release_year: Optional[date] = None
+   aired_from: Optional[date] = None
+   aired_to: Optional[date] = None
    status: Optional[str] = None
-   episodes_chapters: Optional[int] = None
+   episodes: Optional[int] = None
+   chapters: Optional[int] = None
+   volumes: Optional[int] = None
+   duration_minutes: Optional[int] = None
    image_url: Optional[str] = None
    popularity: Optional[int] = None
    rating: Optional[float] = None
+   author: Optional[str] = None
+   studio: Optional[str] = None
+   serialization: Optional[str] = None
+
    
    genres: List[GenreResponse] = []
    
@@ -51,14 +72,25 @@ class AnimeResponse(BaseModel):
 class AnimeUpdate(BaseModel):
     title: Optional[str] = None
     alt_titles: Optional[str] = None
-    type: Optional[str] = None 
+    type: Optional[str] = None
+    original_format: Optional[str] = None
+    source_material: Optional[str] = None
     description: Optional[str] = None
     release_year: Optional[date] = None
+    aired_from: Optional[date] = None
+    aired_to: Optional[date] = None
     status: Optional[str] = None
-    episodes_chapters: Optional[int] = None
+    episodes: Optional[int] = None
+    chapters: Optional[int] = None
+    volumes: Optional[int] = None
+    duration_minutes: Optional[int] = None
     image_url: Optional[str] = None
     popularity: Optional[int] = None
     rating: Optional[float] = None
+    author: Optional[str] = None
+    studio: Optional[str] = None
+    serialization: Optional[str] = None
+    
     genres: Optional[List[int]] = []
 
 # Retrieve all anime
@@ -122,16 +154,26 @@ async def delete_anime(id: int, db: Session = Depends(get_db)):
 async def create_anime(anime: AnimeCreate, db: Session = Depends(get_db)):
     try:
         db_anime = Anime(
-            title=anime.title,
+           title=anime.title,
             alt_titles=anime.alt_titles,
             type=anime.type,
+            original_format=anime.original_format,
+            source_material=anime.source_material,
             description=anime.description,
             release_year=anime.release_year,
+            aired_from=anime.aired_from,
+            aired_to=anime.aired_to,
             status=anime.status,
-            episodes_chapters=anime.episodes_chapters,
+            episodes=anime.episodes,
+            chapters=anime.chapters,
+            volumes=anime.volumes,
+            duration_minutes=anime.duration_minutes,
             image_url=anime.image_url,
             popularity=anime.popularity,
-            rating=anime.rating
+            rating=anime.rating,
+            author=anime.author,
+            studio=anime.studio,
+            serialization=anime.serialization
         )
         # Look up genres by IDs
         if anime.genres:
@@ -144,6 +186,9 @@ async def create_anime(anime: AnimeCreate, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Anime already exists")
-    except Exception:
+    except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create anime due to server error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail= f"Failed to create anime: {str(e)}"
+        )
